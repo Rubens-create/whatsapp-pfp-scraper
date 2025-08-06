@@ -1,30 +1,26 @@
 const express = require('express');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-const SessionPlugin = require('puppeteer-extra-plugin-session');
-const fs = require('fs');
+// Importa o novo plugin
+const UserDataDirPlugin = require('puppeteer-extra-plugin-user-data-dir');
 
-// Configura o Puppeteer com plugins
+// Configura o Puppeteer com os plugins
 puppeteer.use(StealthPlugin());
-puppeteer.use(SessionPlugin({
-    sessionDataDir: './sessions', // Diretório para salvar os dados da sessão
-    persist: true,
-    sessionId: 'whatsapp-session' // Nome da sessão
+// Usa o novo plugin, especificando o diretório
+puppeteer.use(UserDataDirPlugin({
+  path: './user_data' 
 }));
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Variável para armazenar a instância do navegador
 let browserInstance = null;
 let isAuthenticated = false;
 
-// Função para iniciar e obter a instância do navegador
 async function getBrowser() {
     if (browserInstance) return browserInstance;
-
     console.log("Iniciando uma nova instância do navegador...");
-browserInstance = await puppeteer.launch({
+    browserInstance = await puppeteer.launch({
         headless: true,
         args: [
             '--no-sandbox',
@@ -32,20 +28,20 @@ browserInstance = await puppeteer.launch({
             '--disable-dev-shm-usage',
             '--disable-gpu'
         ],
-        // O caminho agora é /usr/bin/chromium
-        executablePath: '/usr/bin/chromium' 
+        executablePath: '/usr/bin/chromium'
     });
-
-    // Evento para quando o navegador for fechado inesperadamente
     browserInstance.on('disconnected', () => {
         console.log('Navegador desconectado.');
         browserInstance = null;
     });
-
     return browserInstance;
 }
 
-// Endpoint para login e geração de QR Code
+// O resto do código dos endpoints (/login, /profile-pic) pode permanecer o mesmo.
+// A lógica de autenticação e busca de perfil não muda.
+// Apenas a forma como a sessão é salva nos bastidores foi alterada.
+
+// Exemplo do endpoint de login para referência
 app.get('/login', async (req, res) => {
     try {
         const browser = await getBrowser();
@@ -54,7 +50,6 @@ app.get('/login', async (req, res) => {
         console.log("Navegando para o WhatsApp Web para login...");
         await page.goto('https://web.whatsapp.com', { waitUntil: 'networkidle2' });
 
-        // Verifica se já está logado
         const loggedInSelector = 'div[data-testid="chat-list"]';
         try {
             await page.waitForSelector(loggedInSelector, { timeout: 10000 });
@@ -73,7 +68,6 @@ app.get('/login', async (req, res) => {
 
         console.log("QR Code gerado. Escaneie para fazer login.");
         res.json({ qrCode });
-        // Não feche a página aqui, espere o usuário escanear
 
     } catch (error) {
         console.error('Erro no /login:', error.message);
@@ -81,10 +75,21 @@ app.get('/login', async (req, res) => {
     }
 });
 
+
 // Endpoint para pegar a foto de perfil
 app.get('/profile-pic', async (req, res) => {
     if (!isAuthenticated) {
-        return res.status(401).json({ error: 'Não autenticado. Acesse /login primeiro.' });
+        // Tenta revalidar a autenticação
+        try {
+            const browser = await getBrowser();
+            const page = await browser.newPage();
+            await page.goto('https://web.whatsapp.com', { waitUntil: 'networkidle2' });
+            await page.waitForSelector('div[data-testid="chat-list"]', { timeout: 5000 });
+            isAuthenticated = true;
+            await page.close();
+        } catch (e) {
+             return res.status(401).json({ error: 'Não autenticado. Acesse /login primeiro.' });
+        }
     }
 
     const { phone } = req.query;
@@ -98,17 +103,23 @@ app.get('/profile-pic', async (req, res) => {
         console.log(`Buscando perfil para o telefone: ${phone}`);
         await page.goto(`https://web.whatsapp.com/send?phone=${phone}`, { waitUntil: 'networkidle2' });
         
-        const avatarSelector = 'div[data-testid="chat-info-drawer"] span[data-testid="default-user"]';
-        try {
-            await page.waitForSelector(avatarSelector, { timeout: 15000 });
-            const profilePicUrl = await page.evaluate(() => {
-                const img = document.querySelector('img[src*="pps.whatsapp.net"]');
-                return img ? img.src : 'N/A';
-            });
-            res.json({ phone, profilePicUrl });
-        } catch (e) {
-            res.status(404).json({ error: 'Perfil não encontrado ou foto indisponível.' });
-        }
+        const avatarSelector = 'div[data-testid="chat-info-drawer"]'; // Seletor mais genérico do painel de info
+        await page.waitForSelector(avatarSelector, { timeout: 20000 });
+
+        const profilePicUrl = await page.evaluate(() => {
+            // Tenta múltiplos seletores para a imagem de perfil
+            const imgSelectors = [
+                'img[src*="pps.whatsapp.net"]',
+                'div[data-testid="chat-info-drawer"] img'
+            ];
+            for (const selector of imgSelectors) {
+                const img = document.querySelector(selector);
+                if (img && img.src) return img.src;
+            }
+            return 'N/A';
+        });
+
+        res.json({ phone, profilePicUrl });
 
     } catch (error) {
         console.error('Erro no /profile-pic:', error.message);
@@ -118,5 +129,4 @@ app.get('/profile-pic', async (req, res) => {
     }
 });
 
-// Inicia o servidor
 app.listen(PORT, () => console.log(`Serviço rodando na porta ${PORT}`));
