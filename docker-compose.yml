@@ -1,9 +1,9 @@
 version: '3'
 services:
-  whatsapp-profile:
+  whatsapp-profile-fetcher:
     build: .
     ports:
-      - "3000:3000"
+      - "3010:3000"  # Mapeia a porta 3010 do host para a porta 3000 do container
     environment:
-      - PORT=3000
+      - PORT=3000     # A porta interna do container (usada pelo Express)
     restart: unless-stopped
