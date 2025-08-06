@@ -5,6 +5,6 @@ services:
     ports:
       - "3010:3000"
     volumes:
-      # Mapeia a pasta 'sessions' local para a pasta dentro do contêiner
-      - ./sessions:/usr/src/app/sessions
+      # Mapeia a pasta 'user_data' para persistir a sessão
+      - ./user_data:/usr/src/app/user_data
     restart: unless-stopped
