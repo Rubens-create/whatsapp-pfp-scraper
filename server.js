@@ -24,7 +24,7 @@ async function getBrowser() {
     if (browserInstance) return browserInstance;
 
     console.log("Iniciando uma nova instância do navegador...");
-    browserInstance = await puppeteer.launch({
+browserInstance = await puppeteer.launch({
         headless: true,
         args: [
             '--no-sandbox',
@@ -32,7 +32,8 @@ async function getBrowser() {
             '--disable-dev-shm-usage',
             '--disable-gpu'
         ],
-        executablePath: '/usr/bin/chromium-browser'
+        // O caminho agora é /usr/bin/chromium
+        executablePath: '/usr/bin/chromium' 
     });
 
     // Evento para quando o navegador for fechado inesperadamente
