@@ -4,22 +4,38 @@ const app = express();
 
 app.get('/login', async (req, res) => {
   try {
-    const browser = await puppeteer.launch({
+    const browser = await Puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--ignore-certificate-errors',
+        '--disable-ssl-checking',
+      ],
     });
     const page = await browser.newPage();
-    await page.goto('https://web.whatsapp.com');
+    await page.goto('https://web.whatsapp.com', { waitUntil: 'networkidle2' });
 
-    // Aguardar geração do QR Code
-    await page.waitForSelector('canvas');
+    // Aguarde o QR Code com timeout maior
+    try {
+      await page.waitForSelector('canvas', { timeout: 60000 });
+    } catch (timeoutError) {
+      return res.status(500).json({ error: 'QR Code not found. Check selector or try again.' });
+    }
+
     const qrCode = await page.evaluate(() => {
       const canvas = document.querySelector('canvas');
-      return canvas.toDataURL();
+      return canvas ? canvas.toDataURL() : null;
     });
+
+    if (!qrCode) {
+      return res.status(500).json({ error: 'QR Code not generated' });
+    }
 
     res.json({ qrCode });
   } catch (error) {
+    console.error('Error generating QR Code:', error.message);
     res.status(500).json({ error: 'Failed to generate QR Code' });
   }
 });
