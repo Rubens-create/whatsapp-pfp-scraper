@@ -7,6 +7,6 @@
   },
   "dependencies": {
     "express": "^4.18.2",
-    "puppeteer": "^21.9.2"
+    "puppeteer": "^24.9.0"  // ← Atualizado para a versão suportada
   }
 }
