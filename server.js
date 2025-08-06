@@ -2,6 +2,28 @@ const express = require('express');
 const puppeteer = require('puppeteer');
 const app = express();
 
+app.get('/login', async (req, res) => {
+  try {
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    });
+    const page = await browser.newPage();
+    await page.goto('https://web.whatsapp.com');
+
+    // Aguardar geração do QR Code
+    await page.waitForSelector('canvas');
+    const qrCode = await page.evaluate(() => {
+      const canvas = document.querySelector('canvas');
+      return canvas.toDataURL();
+    });
+
+    res.json({ qrCode });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to generate QR Code' });
+  }
+});
+
 app.get('/profile-pic', async (req, res) => {
   const { phone } = req.query;
   if (!phone) return res.status(400).json({ error: 'Phone number is required' });
