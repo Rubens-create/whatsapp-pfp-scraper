@@ -1,21 +1,18 @@
 FROM node:18
 
-# Instale dependências do sistema
-RUN apt-get update && \
-    apt-get install -y \
-    chromium \
-    chromium-driver \
+# Instala o Chromium e outras dependências
+RUN apt-get update && apt-get install -y \
+    chromium-browser \
+    libgbm-dev \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
-# Configure o diretório do app
 WORKDIR /usr/src/app
 COPY package*.json ./
-RUN npm install
+RUN npm install --no-cache
 COPY . .
 
-# Exponha a porta
 EXPOSE 3000
 
-# Inicie o servidor
-CMD ["node", "server.js"]
+# Adicionamos uma verificação para ver se o chromium foi instalado
+CMD ["sh", "-c", "ls -l /usr/bin/chromium* && node server.js"]
