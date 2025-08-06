@@ -4,7 +4,7 @@ const app = express();
 
 app.get('/login', async (req, res) => {
   try {
-    const browser = await Puppeteer.launch({
+    const browser = await puppeteer.launch({
       headless: true,
       args: [
         '--no-sandbox',
